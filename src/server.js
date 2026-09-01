@@ -28,11 +28,18 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-mongoose.connect(process.env.MONGO_URI).then(() => {
-  console.log('MongoDB Connected');
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB Connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Start server only if not running in a serverless environment (like Vercel)
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
-}).catch(err => {
-  console.error('MongoDB connection error:', err);
-});
+}
+
+// Export the app for Vercel serverless function
+export default app;
