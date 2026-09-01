@@ -22,6 +22,11 @@ app.use('/api/vendor', vendorRoutes);
 app.use('/api/leads', leadRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Base route for health check / welcome
+app.get('/', (req, res) => {
+  res.status(200).json({ message: 'Welcome to the CRM Backend API. Services are running smoothly.' });
+});
+
 // Error Handling
 app.use(notFound);
 app.use(errorHandler);
