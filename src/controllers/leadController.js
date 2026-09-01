@@ -1,8 +1,8 @@
-const Lead = require('../models/Lead');
-const Product = require('../models/Product');
-const VendorProfile = require('../models/VendorProfile');
+import Lead from '../models/Lead.js';
+import Product from '../models/Product.js';
+import VendorProfile from '../models/VendorProfile.js';
 
-exports.createLead = async (req, res, next) => {
+export const createLead = async (req, res, next) => {
   try {
     const { customerName, customerEmail, customerPhone, assignedTo } = req.body;
     
@@ -32,7 +32,7 @@ exports.createLead = async (req, res, next) => {
   }
 };
 
-exports.getLeads = async (req, res, next) => {
+export const getLeads = async (req, res, next) => {
   try {
     let query = {};
     if (req.user.role === 'team-member') {
@@ -47,7 +47,7 @@ exports.getLeads = async (req, res, next) => {
   }
 };
 
-exports.assignLead = async (req, res, next) => {
+export const assignLead = async (req, res, next) => {
   try {
     // Only vendors can assign leads
     const { assignedTo } = req.body;
@@ -63,7 +63,7 @@ exports.assignLead = async (req, res, next) => {
   }
 };
 
-exports.generateQuote = async (req, res, next) => {
+export const generateQuote = async (req, res, next) => {
   try {
     const { products } = req.body; // Array of { productId, quantity }
     

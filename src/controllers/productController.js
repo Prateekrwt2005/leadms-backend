@@ -1,7 +1,7 @@
-const Product = require('../models/Product');
+import Product from '../models/Product.js';
 
 // TRADER ENDPOINTS
-exports.createProduct = async (req, res, next) => {
+export const createProduct = async (req, res, next) => {
   try {
     const { name, description, basePrice, isActive } = req.body;
     const product = await Product.create({
@@ -17,7 +17,7 @@ exports.createProduct = async (req, res, next) => {
   }
 };
 
-exports.getTraderProducts = async (req, res, next) => {
+export const getTraderProducts = async (req, res, next) => {
   try {
     const products = await Product.find({ createdBy: req.user._id });
     res.status(200).json(products);
@@ -26,7 +26,7 @@ exports.getTraderProducts = async (req, res, next) => {
   }
 };
 
-exports.updateProduct = async (req, res, next) => {
+export const updateProduct = async (req, res, next) => {
   try {
     const product = await Product.findOneAndUpdate(
       { _id: req.params.id, createdBy: req.user._id },
@@ -40,7 +40,7 @@ exports.updateProduct = async (req, res, next) => {
   }
 };
 
-exports.deleteProduct = async (req, res, next) => {
+export const deleteProduct = async (req, res, next) => {
   try {
     const product = await Product.findOneAndDelete({ _id: req.params.id, createdBy: req.user._id });
     if (!product) return res.status(404).json({ message: 'Product not found' });
@@ -51,7 +51,7 @@ exports.deleteProduct = async (req, res, next) => {
 };
 
 // VENDOR ENDPOINTS
-exports.getAvailableProducts = async (req, res, next) => {
+export const getAvailableProducts = async (req, res, next) => {
   try {
     // Vendors can see all active products from any trader
     const products = await Product.find({ isActive: true });
@@ -61,7 +61,7 @@ exports.getAvailableProducts = async (req, res, next) => {
   }
 };
 
-exports.lockProduct = async (req, res, next) => {
+export const lockProduct = async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
@@ -76,7 +76,7 @@ exports.lockProduct = async (req, res, next) => {
   }
 };
 
-exports.unlockProduct = async (req, res, next) => {
+export const unlockProduct = async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
@@ -92,7 +92,7 @@ exports.unlockProduct = async (req, res, next) => {
 };
 
 // TEAM-MEMBER ENDPOINTS
-exports.getVendorLockedProducts = async (req, res, next) => {
+export const getVendorLockedProducts = async (req, res, next) => {
   try {
     // Team member fetches products locked by their vendor
     const vendorId = req.user.vendorId;

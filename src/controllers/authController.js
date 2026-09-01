@@ -1,8 +1,8 @@
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const User = require('../models/User');
-const Token = require('../models/Token');
-const { sendConfirmationEmail, sendPasswordResetEmail, sendInvitationEmail } = require('../services/emailService');
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import User from '../models/User.js';
+import Token from '../models/Token.js';
+import { sendConfirmationEmail, sendPasswordResetEmail, sendInvitationEmail  } from '../services/emailService.js';
 
 const generateTokens = (id) => {
   const accessToken = jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '15m' });
@@ -10,7 +10,7 @@ const generateTokens = (id) => {
   return { accessToken, refreshToken };
 };
 
-exports.register = async (req, res, next) => {
+export const register = async (req, res, next) => {
   try {
     const { email, password, role, firstName, lastName } = req.body;
     
@@ -84,7 +84,7 @@ const renderVerificationPage = (success, message) => `
 </html>
 `;
 
-exports.confirmEmail = async (req, res, next) => {
+export const confirmEmail = async (req, res, next) => {
   try {
     const { token } = req.query;
     const tokenDoc = await Token.findOne({ token, type: 'email-confirmation' });
@@ -109,7 +109,7 @@ exports.confirmEmail = async (req, res, next) => {
   }
 };
 
-exports.login = async (req, res, next) => {
+export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
@@ -143,7 +143,7 @@ exports.login = async (req, res, next) => {
   }
 };
 
-exports.logout = async (req, res, next) => {
+export const logout = async (req, res, next) => {
   try {
     const user = req.user;
     user.activeRefreshToken = null;
@@ -154,7 +154,7 @@ exports.logout = async (req, res, next) => {
   }
 };
 
-exports.refreshToken = async (req, res, next) => {
+export const refreshToken = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
     
@@ -178,7 +178,7 @@ exports.refreshToken = async (req, res, next) => {
   }
 };
 
-exports.forgotPassword = async (req, res, next) => {
+export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
@@ -198,7 +198,7 @@ exports.forgotPassword = async (req, res, next) => {
   }
 };
 
-exports.resetPassword = async (req, res, next) => {
+export const resetPassword = async (req, res, next) => {
   try {
     const { token, newPassword } = req.body;
     const tokenDoc = await Token.findOne({ token, type: 'password-reset' });
@@ -221,7 +221,7 @@ exports.resetPassword = async (req, res, next) => {
 };
 
 // Vendor invites a team-member
-exports.inviteTeamMember = async (req, res, next) => {
+export const inviteTeamMember = async (req, res, next) => {
   try {
     const { email, designation } = req.body;
     const vendorId = req.user._id;
@@ -254,7 +254,7 @@ exports.inviteTeamMember = async (req, res, next) => {
 };
 
 // Team member accepts invitation and sets password
-exports.acceptInvitation = async (req, res, next) => {
+export const acceptInvitation = async (req, res, next) => {
   try {
     const { token, firstName, lastName, password } = req.body;
     const tokenDoc = await Token.findOne({ token, type: 'invitation' });

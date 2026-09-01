@@ -1,7 +1,6 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { 
-  createProduct, 
+import { createProduct, 
   getTraderProducts, 
   updateProduct, 
   deleteProduct, 
@@ -9,8 +8,8 @@ const {
   lockProduct, 
   unlockProduct, 
   getVendorLockedProducts 
-} = require('../controllers/productController');
-const { protect, authorize } = require('../middlewares/authMiddleware');
+ } from '../controllers/productController.js';
+import { protect, authorize  } from '../middlewares/authMiddleware.js';
 
 // Trader Routes
 router.route('/trader')
@@ -29,4 +28,4 @@ router.post('/:id/unlock', protect, authorize('vendor'), unlockProduct);
 // Team-member Routes
 router.get('/locked', protect, authorize('team-member', 'vendor'), getVendorLockedProducts);
 
-module.exports = router;
+export default router;

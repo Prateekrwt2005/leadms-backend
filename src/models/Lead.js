@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const leadSchema = new mongoose.Schema({
   customerName: {
@@ -51,4 +51,4 @@ const leadSchema = new mongoose.Schema({
   timestamps: true
 });
 
-module.exports = mongoose.model('Lead', leadSchema);
+export default mongoose.model('Lead', leadSchema);

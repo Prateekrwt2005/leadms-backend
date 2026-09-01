@@ -1,7 +1,7 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { createLead, getLeads, assignLead, generateQuote } = require('../controllers/leadController');
-const { protect, authorize } = require('../middlewares/authMiddleware');
+import { createLead, getLeads, assignLead, generateQuote  } from '../controllers/leadController.js';
+import { protect, authorize  } from '../middlewares/authMiddleware.js';
 
 router.route('/')
   .post(protect, authorize('vendor', 'team-member'), createLead)
@@ -10,4 +10,4 @@ router.route('/')
 router.put('/:id/assign', protect, authorize('vendor'), assignLead);
 router.post('/:id/quote', protect, authorize('vendor'), generateQuote);
 
-module.exports = router;
+export default router;

@@ -1,5 +1,4 @@
-const nodemailer = require('nodemailer');
-require('dotenv').config();
+import nodemailer from 'nodemailer';
 
 // Create reusable transporter object using SMTP transport
 const transporter = nodemailer.createTransport({
@@ -57,7 +56,7 @@ const sendPasswordResetEmail = async (to, token, domain) => {
   return sendEmail(to, subject, url, html);
 };
 
-module.exports = {
+export {
   sendEmail,
   sendConfirmationEmail,
   sendInvitationEmail,

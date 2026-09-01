@@ -218,6 +218,46 @@ Updates the quoting variables for a vendor.
   ```
 - **Response (200):** Returns the updated VendorProfile object.
 
+### Admin Analytics (`/api/admin`)
+
+These endpoints are strictly protected and require the `admin` role.
+
+#### `GET /users`
+Fetches a list of all users in the system (excluding passwords).
+- **Response (200):** Array of User objects.
+
+#### `GET /leads`
+Fetches all leads across the entire system, populated with assignee and vendor details.
+- **Response (200):** Array of Lead objects.
+
+#### `GET /analytics`
+Returns aggregated analytical data intended for the interns to build a dashboard.
+- **Response (200):**
+  ```json
+  {
+    "users": {
+      "trader": 5,
+      "vendor": 12,
+      "team-member": 30
+    },
+    "leads": {
+      "total": 150,
+      "byStatus": {
+        "new": 50,
+        "quoted": 100
+      }
+    },
+    "products": {
+      "total": 200,
+      "active": 190
+    },
+    "revenue": {
+      "totalQuoted": 50000,
+      "totalExpectedMargin": 5000
+    }
+  }
+  ```
+
 ---
 
 ## 🔒 Security Architecture

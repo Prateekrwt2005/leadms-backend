@@ -1,7 +1,6 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { 
-  register, 
+import { register, 
   confirmEmail, 
   login, 
   logout, 
@@ -10,8 +9,8 @@ const {
   resetPassword, 
   inviteTeamMember, 
   acceptInvitation 
-} = require('../controllers/authController');
-const { protect, authorize } = require('../middlewares/authMiddleware');
+ } from '../controllers/authController.js';
+import { protect, authorize  } from '../middlewares/authMiddleware.js';
 
 // Public routes
 router.post('/register', register);
@@ -26,4 +25,4 @@ router.post('/accept-invitation', acceptInvitation);
 router.post('/logout', protect, logout);
 router.post('/invite', protect, authorize('vendor'), inviteTeamMember);
 
-module.exports = router;
+export default router;

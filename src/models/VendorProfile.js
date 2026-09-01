@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const vendorProfileSchema = new mongoose.Schema({
   vendorId: {
@@ -23,4 +23,4 @@ const vendorProfileSchema = new mongoose.Schema({
   timestamps: true
 });
 
-module.exports = mongoose.model('VendorProfile', vendorProfileSchema);
+export default mongoose.model('VendorProfile', vendorProfileSchema);

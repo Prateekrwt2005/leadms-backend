@@ -1,6 +1,6 @@
-const VendorProfile = require('../models/VendorProfile');
+import VendorProfile from '../models/VendorProfile.js';
 
-exports.updateProfile = async (req, res, next) => {
+export const updateProfile = async (req, res, next) => {
   try {
     const { marginPercentage, installationPrice, miscCharges } = req.body;
     let profile = await VendorProfile.findOne({ vendorId: req.user._id });
@@ -25,7 +25,7 @@ exports.updateProfile = async (req, res, next) => {
   }
 };
 
-exports.getProfile = async (req, res, next) => {
+export const getProfile = async (req, res, next) => {
   try {
     const profile = await VendorProfile.findOne({ vendorId: req.user._id });
     res.status(200).json(profile || {});
