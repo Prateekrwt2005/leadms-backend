@@ -9,7 +9,6 @@ import {
   sendInvitationEmail,
 } from "../services/emailService.js";
 
-
 // ============================================================
 // TOKEN GENERATION
 // ============================================================
@@ -30,7 +29,6 @@ const generateTokens = (id) => {
     refreshToken,
   };
 };
-
 
 // ============================================================
 // REGISTER
@@ -65,48 +63,62 @@ export const register = async (req, res, next) => {
       });
     }
 
+    // --------------------------------------------------------
+    // Email verification configuration
+    //
+    // Set SKIP_EMAIL_VERIFICATION=true for deployment/demo
+    // when no email provider/domain is configured.
+    // --------------------------------------------------------
+
+    const skipEmailVerification =
+      process.env.SKIP_EMAIL_VERIFICATION === "true";
+
     const user = await User.create({
       email,
       password,
       role,
       firstName,
       lastName,
+      isEmailConfirmed: skipEmailVerification,
     });
 
     // --------------------------------------------------------
-    // Create email confirmation token
-    // --------------------------------------------------------
-
-    const tokenStr = crypto
-      .randomBytes(32)
-      .toString("hex");
-
-    await Token.create({
-      userId: user._id,
-      token: tokenStr,
-      type: "email-confirmation",
-    });
-
-    // --------------------------------------------------------
-    // Send confirmation email
+    // Email verification
     //
-    // emailService now uses BACKEND_URL for this link.
+    // When enabled:
+    // 1. Create verification token
+    // 2. Send confirmation email
+    //
+    // When skipped:
+    // Account is already confirmed and no email is sent.
     // --------------------------------------------------------
 
-    await sendConfirmationEmail(
-      user.email,
-      tokenStr
-    );
+    if (!skipEmailVerification) {
+      const tokenStr = crypto
+        .randomBytes(32)
+        .toString("hex");
+
+      await Token.create({
+        userId: user._id,
+        token: tokenStr,
+        type: "email-confirmation",
+      });
+
+      await sendConfirmationEmail(
+        user.email,
+        tokenStr
+      );
+    }
 
     res.status(201).json({
-      message:
-        "Registration successful. Please check your email to verify your account.",
+      message: skipEmailVerification
+        ? "Registration successful. You can now login."
+        : "Registration successful. Please check your email to verify your account.",
     });
   } catch (error) {
     next(error);
   }
 };
-
 
 // ============================================================
 // EMAIL VERIFICATION PAGE
@@ -117,7 +129,6 @@ const renderVerificationPage = (
   message
 ) => `
 <!DOCTYPE html>
-
 <html lang="en">
 
 <head>
@@ -131,7 +142,6 @@ const renderVerificationPage = (
   <title>Email Verification</title>
 
   <style>
-
     * {
       box-sizing: border-box;
     }
@@ -259,7 +269,6 @@ const renderVerificationPage = (
 
       margin-top: 18px;
     }
-
   </style>
 </head>
 
@@ -299,7 +308,6 @@ const renderVerificationPage = (
   </div>
 
   <script>
-
     let timeLeft = 10;
 
     const countdownEl =
@@ -317,18 +325,15 @@ const renderVerificationPage = (
         clearInterval(timer);
 
         window.close();
-
       }
 
     }, 1000);
-
   </script>
 
 </body>
 
 </html>
 `;
-
 
 // ============================================================
 // CONFIRM EMAIL
@@ -417,7 +422,6 @@ export const confirmEmail = async (
   }
 };
 
-
 // ============================================================
 // LOGIN
 // ============================================================
@@ -492,7 +496,6 @@ export const login = async (
   }
 };
 
-
 // ============================================================
 // LOGOUT
 // ============================================================
@@ -516,7 +519,6 @@ export const logout = async (
     next(error);
   }
 };
-
 
 // ============================================================
 // REFRESH ACCESS TOKEN
@@ -565,7 +567,6 @@ export const refreshToken = async (
     next(error);
   }
 };
-
 
 // ============================================================
 // FORGOT PASSWORD
@@ -617,7 +618,6 @@ export const forgotPassword = async (
     next(error);
   }
 };
-
 
 // ============================================================
 // RESET PASSWORD
@@ -681,7 +681,6 @@ export const resetPassword = async (
     next(error);
   }
 };
-
 
 // ============================================================
 // VENDOR INVITES TEAM MEMBER
@@ -765,12 +764,6 @@ export const inviteTeamMember = async (
 
     // --------------------------------------------------------
     // Invitation email uses CLIENT_URL.
-    //
-    // Example:
-    // http://localhost:5173/accept-invitation?token=...
-    //
-    // Production:
-    // https://leadms-one.vercel.app/accept-invitation?token=...
     // --------------------------------------------------------
 
     const domain =
@@ -791,7 +784,6 @@ export const inviteTeamMember = async (
     next(error);
   }
 };
-
 
 // ============================================================
 // ACCEPT TEAM MEMBER INVITATION
