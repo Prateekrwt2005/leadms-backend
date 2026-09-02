@@ -1,278 +1,885 @@
-import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
-import User from '../models/User.js';
-import Token from '../models/Token.js';
-import { sendConfirmationEmail, sendPasswordResetEmail, sendInvitationEmail  } from '../services/emailService.js';
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import User from "../models/User.js";
+import Token from "../models/Token.js";
+
+import {
+  sendConfirmationEmail,
+  sendPasswordResetEmail,
+  sendInvitationEmail,
+} from "../services/emailService.js";
+
+
+// ============================================================
+// TOKEN GENERATION
+// ============================================================
 
 const generateTokens = (id) => {
-  const accessToken = jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '15m' });
-  const refreshToken = crypto.randomBytes(40).toString('hex');
-  return { accessToken, refreshToken };
+  const accessToken = jwt.sign(
+    { id },
+    process.env.JWT_SECRET,
+    { expiresIn: "15m" }
+  );
+
+  const refreshToken = crypto
+    .randomBytes(40)
+    .toString("hex");
+
+  return {
+    accessToken,
+    refreshToken,
+  };
 };
+
+
+// ============================================================
+// REGISTER
+// Trader / Vendor public registration
+// ============================================================
 
 export const register = async (req, res, next) => {
   try {
-    const { email, password, role, firstName, lastName } = req.body;
-    
-    // Only allow trader and vendor self-signup
-    if (!['trader', 'vendor'].includes(role)) {
-      return res.status(400).json({ message: 'Invalid role for public signup' });
+    const {
+      email,
+      password,
+      role,
+      firstName,
+      lastName,
+    } = req.body;
+
+    // Only Trader and Vendor can register themselves.
+    // Team Members are created through Vendor invitation.
+    if (!["trader", "vendor"].includes(role)) {
+      return res.status(400).json({
+        message: "Invalid role for public signup",
+      });
     }
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({
+      email,
+    });
+
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({
+        message: "User already exists",
+      });
     }
 
-    const user = await User.create({ email, password, role, firstName, lastName });
-    
-    // Create confirmation token
-    const tokenStr = crypto.randomBytes(32).toString('hex');
-    await Token.create({ userId: user._id, token: tokenStr, type: 'email-confirmation' });
-    
-    // Send email
-    const domain = process.env.CLIENT_URL || `http://localhost:${process.env.PORT || 5000}`;
-    await sendConfirmationEmail(user.email, tokenStr, domain);
-    
-    res.status(201).json({ message: 'Registration successful. Please check your email to verify your account.' });
-  } catch (error) {
-    next(error);
-  }
-};
+    const user = await User.create({
+      email,
+      password,
+      role,
+      firstName,
+      lastName,
+    });
 
-const renderVerificationPage = (success, message) => `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Verification</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
-        .icon { font-size: 48px; margin-bottom: 20px; }
-        .success .icon { color: #28a745; }
-        .error .icon { color: #dc3545; }
-        h1 { margin: 0 0 10px; font-size: 24px; color: #333; }
-        p { color: #666; margin-bottom: 30px; line-height: 1.5; }
-        .btn { background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-size: 16px; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.3s; }
-        .btn:hover { background: #0056b3; }
-        .timer { font-size: 14px; color: #999; margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <div class="card ${success ? 'success' : 'error'}">
-        <div class="icon">${success ? '✓' : '✗'}</div>
-        <h1>${success ? 'Verification Successful' : 'Verification Failed'}</h1>
-        <p>${message}</p>
-        <button class="btn" onclick="window.close()">Close Window</button>
-        <div class="timer">Closing automatically in <span id="countdown">10</span> seconds...</div>
-    </div>
-    <script>
-        let timeLeft = 10;
-        const countdownEl = document.getElementById('countdown');
-        const timer = setInterval(() => {
-            timeLeft--;
-            countdownEl.textContent = timeLeft;
-            if (timeLeft <= 0) {
-                clearInterval(timer);
-                window.close();
-            }
-        }, 1000);
-    </script>
-</body>
-</html>
-`;
+    // --------------------------------------------------------
+    // Create email confirmation token
+    // --------------------------------------------------------
 
-export const confirmEmail = async (req, res, next) => {
-  try {
-    const { token } = req.query;
-    const tokenDoc = await Token.findOne({ token, type: 'email-confirmation' });
-    
-    if (!tokenDoc) {
-      return res.status(400).send(renderVerificationPage(false, 'The verification link is invalid or has expired.'));
-    }
-    
-    const user = await User.findById(tokenDoc.userId);
-    if (!user) {
-      return res.status(400).send(renderVerificationPage(false, 'The user associated with this verification link could not be found.'));
-    }
-    
-    user.isEmailConfirmed = true;
-    await user.save();
-    
-    await tokenDoc.deleteOne();
-    
-    res.status(200).send(renderVerificationPage(true, 'Your email has been successfully confirmed. You can now login to your account.'));
-  } catch (error) {
-    res.status(500).send(renderVerificationPage(false, 'An internal server error occurred during verification.'));
-  }
-};
+    const tokenStr = crypto
+      .randomBytes(32)
+      .toString("hex");
 
-export const login = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-    
-    if (!user.isEmailConfirmed) {
-      return res.status(401).json({ message: 'Please confirm your email first' });
-    }
-    
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-    
-    const { accessToken, refreshToken } = generateTokens(user._id);
-    
-    // Single device login logic: invalidate any old refresh token
-    user.activeRefreshToken = refreshToken;
-    await user.save();
-    
-    res.status(200).json({
-      accessToken,
-      refreshToken,
-      user: { id: user._id, email: user.email, role: user.role }
+    await Token.create({
+      userId: user._id,
+      token: tokenStr,
+      type: "email-confirmation",
+    });
+
+    // --------------------------------------------------------
+    // Send confirmation email
+    //
+    // emailService now uses BACKEND_URL for this link.
+    // --------------------------------------------------------
+
+    await sendConfirmationEmail(
+      user.email,
+      tokenStr
+    );
+
+    res.status(201).json({
+      message:
+        "Registration successful. Please check your email to verify your account.",
     });
   } catch (error) {
     next(error);
   }
 };
 
-export const logout = async (req, res, next) => {
+
+// ============================================================
+// EMAIL VERIFICATION PAGE
+// ============================================================
+
+const renderVerificationPage = (
+  success,
+  message
+) => `
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Email Verification</title>
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family:
+        'Segoe UI',
+        Tahoma,
+        Geneva,
+        Verdana,
+        sans-serif;
+
+      background:
+        #0f172a;
+
+      display: flex;
+
+      justify-content: center;
+
+      align-items: center;
+
+      min-height: 100vh;
+
+      margin: 0;
+
+      padding: 20px;
+    }
+
+    .card {
+      background: #ffffff;
+
+      padding: 40px;
+
+      border-radius: 16px;
+
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.25);
+
+      text-align: center;
+
+      max-width: 440px;
+
+      width: 100%;
+    }
+
+    .icon {
+      width: 70px;
+
+      height: 70px;
+
+      border-radius: 50%;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      margin: 0 auto 20px;
+
+      font-size: 36px;
+
+      font-weight: bold;
+    }
+
+    .success .icon {
+      background: #dcfce7;
+
+      color: #16a34a;
+    }
+
+    .error .icon {
+      background: #fee2e2;
+
+      color: #dc2626;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+
+      font-size: 24px;
+
+      color: #1e293b;
+    }
+
+    p {
+      color: #64748b;
+
+      margin-bottom: 24px;
+
+      line-height: 1.6;
+    }
+
+    .btn {
+      background: #4f46e5;
+
+      color: white;
+
+      border: none;
+
+      padding: 12px 24px;
+
+      border-radius: 8px;
+
+      font-size: 15px;
+
+      cursor: pointer;
+
+      text-decoration: none;
+
+      display: inline-block;
+
+      transition:
+        background 0.2s ease;
+    }
+
+    .btn:hover {
+      background: #4338ca;
+    }
+
+    .timer {
+      font-size: 13px;
+
+      color: #94a3b8;
+
+      margin-top: 18px;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <div class="card ${success ? "success" : "error"}">
+
+    <div class="icon">
+      ${success ? "✓" : "✗"}
+    </div>
+
+    <h1>
+      ${
+        success
+          ? "Verification Successful"
+          : "Verification Failed"
+      }
+    </h1>
+
+    <p>
+      ${message}
+    </p>
+
+    <button
+      class="btn"
+      onclick="window.close()"
+    >
+      Close Window
+    </button>
+
+    <div class="timer">
+      Closing automatically in
+      <span id="countdown">10</span>
+      seconds...
+    </div>
+
+  </div>
+
+  <script>
+
+    let timeLeft = 10;
+
+    const countdownEl =
+      document.getElementById("countdown");
+
+    const timer = setInterval(() => {
+
+      timeLeft--;
+
+      countdownEl.textContent =
+        timeLeft;
+
+      if (timeLeft <= 0) {
+
+        clearInterval(timer);
+
+        window.close();
+
+      }
+
+    }, 1000);
+
+  </script>
+
+</body>
+
+</html>
+`;
+
+
+// ============================================================
+// CONFIRM EMAIL
+// GET /api/auth/confirm-email?token=...
+// ============================================================
+
+export const confirmEmail = async (
+  req,
+  res,
+  next
+) => {
   try {
-    const user = req.user;
-    user.activeRefreshToken = null;
+    const { token } = req.query;
+
+    if (!token) {
+      return res
+        .status(400)
+        .send(
+          renderVerificationPage(
+            false,
+            "No verification token was provided."
+          )
+        );
+    }
+
+    const tokenDoc = await Token.findOne({
+      token,
+      type: "email-confirmation",
+    });
+
+    if (!tokenDoc) {
+      return res
+        .status(400)
+        .send(
+          renderVerificationPage(
+            false,
+            "The verification link is invalid or has expired."
+          )
+        );
+    }
+
+    const user = await User.findById(
+      tokenDoc.userId
+    );
+
+    if (!user) {
+      return res
+        .status(400)
+        .send(
+          renderVerificationPage(
+            false,
+            "The user associated with this verification link could not be found."
+          )
+        );
+    }
+
+    user.isEmailConfirmed = true;
+
     await user.save();
-    res.status(200).json({ message: 'Logged out successfully' });
+
+    // Token is single-use.
+    await tokenDoc.deleteOne();
+
+    return res
+      .status(200)
+      .send(
+        renderVerificationPage(
+          true,
+          "Your email has been successfully confirmed. You can now login to your account."
+        )
+      );
+  } catch (error) {
+    console.error(
+      "Email confirmation error:",
+      error
+    );
+
+    return res
+      .status(500)
+      .send(
+        renderVerificationPage(
+          false,
+          "An internal server error occurred during verification."
+        )
+      );
+  }
+};
+
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+export const login = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const {
+      email,
+      password,
+    } = req.body;
+
+    const user = await User.findOne({
+      email,
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    if (!user.isEmailConfirmed) {
+      return res.status(401).json({
+        message:
+          "Please confirm your email first",
+      });
+    }
+
+    const isMatch =
+      await user.comparePassword(
+        password
+      );
+
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    const {
+      accessToken,
+      refreshToken,
+    } = generateTokens(user._id);
+
+    // Single-device login.
+    // Any previous refresh token becomes invalid.
+    user.activeRefreshToken =
+      refreshToken;
+
+    await user.save();
+
+    res.status(200).json({
+      accessToken,
+      refreshToken,
+
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        designation: user.designation,
+        vendorId: user.vendorId,
+      },
+    });
   } catch (error) {
     next(error);
   }
 };
 
-export const refreshToken = async (req, res, next) => {
+
+// ============================================================
+// LOGOUT
+// ============================================================
+
+export const logout = async (
+  req,
+  res,
+  next
+) => {
   try {
-    const { refreshToken } = req.body;
-    
-    if (!refreshToken) return res.status(401).json({ message: 'Refresh token required' });
-    
-    const user = await User.findOne({ activeRefreshToken: refreshToken });
-    
-    if (!user) {
-       // Possible token reuse attack or simply logged out/invalidated
-       return res.status(403).json({ message: 'Refresh token is invalid or expired' });
-    }
-    
-    // Generate new tokens
-    const tokens = generateTokens(user._id);
-    user.activeRefreshToken = tokens.refreshToken;
+    const user = req.user;
+
+    user.activeRefreshToken = null;
+
     await user.save();
-    
+
+    res.status(200).json({
+      message: "Logged out successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// ============================================================
+// REFRESH ACCESS TOKEN
+// ============================================================
+
+export const refreshToken = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const {
+      refreshToken,
+    } = req.body;
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        message:
+          "Refresh token required",
+      });
+    }
+
+    const user = await User.findOne({
+      activeRefreshToken:
+        refreshToken,
+    });
+
+    if (!user) {
+      return res.status(403).json({
+        message:
+          "Refresh token is invalid or expired",
+      });
+    }
+
+    const tokens =
+      generateTokens(user._id);
+
+    // Rotate refresh token.
+    user.activeRefreshToken =
+      tokens.refreshToken;
+
+    await user.save();
+
     res.status(200).json(tokens);
   } catch (error) {
     next(error);
   }
 };
 
-export const forgotPassword = async (req, res, next) => {
+
+// ============================================================
+// FORGOT PASSWORD
+// ============================================================
+
+export const forgotPassword = async (
+  req,
+  res,
+  next
+) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
 
-    const tokenStr = crypto.randomBytes(32).toString('hex');
-    await Token.create({ userId: user._id, token: tokenStr, type: 'password-reset' });
-
-    const domain = process.env.CLIENT_URL || `http://localhost:${process.env.PORT || 5000}`;
-    await sendPasswordResetEmail(user.email, tokenStr, domain);
-
-    res.status(200).json({ message: 'Password reset link sent' });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const resetPassword = async (req, res, next) => {
-  try {
-    const { token, newPassword } = req.body;
-    const tokenDoc = await Token.findOne({ token, type: 'password-reset' });
-    
-    if (!tokenDoc) {
-      return res.status(400).json({ message: 'Invalid or expired token' });
-    }
-    
-    const user = await User.findById(tokenDoc.userId);
-    user.password = newPassword;
-    user.activeRefreshToken = null; // Log out everywhere
-    await user.save();
-    
-    await tokenDoc.deleteOne();
-    
-    res.status(200).json({ message: 'Password reset successful' });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Vendor invites a team-member
-export const inviteTeamMember = async (req, res, next) => {
-  try {
-    const { email, designation } = req.body;
-    const vendorId = req.user._id;
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    const tokenStr = crypto.randomBytes(32).toString('hex');
-    
-    // We can pre-create a shell user
-    const user = await User.create({
+    const user = await User.findOne({
       email,
-      password: crypto.randomBytes(16).toString('hex'), // random password
-      role: 'team-member',
-      vendorId,
-      designation
     });
 
-    await Token.create({ userId: user._id, token: tokenStr, type: 'invitation' });
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
 
-    const domain = process.env.CLIENT_URL || `http://localhost:${process.env.PORT || 5000}`;
-    await sendInvitationEmail(user.email, tokenStr, domain, designation);
+    const tokenStr = crypto
+      .randomBytes(32)
+      .toString("hex");
 
-    res.status(200).json({ message: 'Invitation sent' });
+    await Token.create({
+      userId: user._id,
+      token: tokenStr,
+      type: "password-reset",
+    });
+
+    const domain =
+      process.env.CLIENT_URL ||
+      "http://localhost:5173";
+
+    await sendPasswordResetEmail(
+      user.email,
+      tokenStr,
+      domain
+    );
+
+    res.status(200).json({
+      message:
+        "Password reset link sent",
+    });
   } catch (error) {
     next(error);
   }
 };
 
-// Team member accepts invitation and sets password
-export const acceptInvitation = async (req, res, next) => {
+
+// ============================================================
+// RESET PASSWORD
+// ============================================================
+
+export const resetPassword = async (
+  req,
+  res,
+  next
+) => {
   try {
-    const { token, firstName, lastName, password } = req.body;
-    const tokenDoc = await Token.findOne({ token, type: 'invitation' });
-    
-    if (!tokenDoc) {
-      return res.status(400).json({ message: 'Invalid or expired token' });
+    const {
+      token,
+      newPassword,
+    } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        message:
+          "Token and new password are required",
+      });
     }
-    
-    const user = await User.findById(tokenDoc.userId);
+
+    const tokenDoc = await Token.findOne({
+      token,
+      type: "password-reset",
+    });
+
+    if (!tokenDoc) {
+      return res.status(400).json({
+        message:
+          "Invalid or expired token",
+      });
+    }
+
+    const user = await User.findById(
+      tokenDoc.userId
+    );
+
+    if (!user) {
+      return res.status(400).json({
+        message: "User not found",
+      });
+    }
+
+    user.password = newPassword;
+
+    // Reset password invalidates existing sessions.
+    user.activeRefreshToken = null;
+
+    await user.save();
+
+    // Token is single-use.
+    await tokenDoc.deleteOne();
+
+    res.status(200).json({
+      message:
+        "Password reset successful",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// ============================================================
+// VENDOR INVITES TEAM MEMBER
+// ============================================================
+
+export const inviteTeamMember = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const {
+      email,
+      designation,
+    } = req.body;
+
+    const vendorId =
+      req.user._id;
+
+    if (!email) {
+      return res.status(400).json({
+        message:
+          "Email is required",
+      });
+    }
+
+    if (!designation) {
+      return res.status(400).json({
+        message:
+          "Designation is required",
+      });
+    }
+
+    const existingUser =
+      await User.findOne({
+        email,
+      });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message:
+          "User already exists",
+      });
+    }
+
+    const tokenStr = crypto
+      .randomBytes(32)
+      .toString("hex");
+
+    // --------------------------------------------------------
+    // Create temporary Team Member account
+    // --------------------------------------------------------
+
+    const user = await User.create({
+      email,
+
+      // Temporary password.
+      // The Team Member replaces this when accepting.
+      password: crypto
+        .randomBytes(16)
+        .toString("hex"),
+
+      role: "team-member",
+
+      vendorId,
+
+      designation,
+
+      isEmailConfirmed: false,
+    });
+
+    // --------------------------------------------------------
+    // Create invitation token
+    // --------------------------------------------------------
+
+    await Token.create({
+      userId: user._id,
+      token: tokenStr,
+      type: "invitation",
+    });
+
+    // --------------------------------------------------------
+    // Invitation email uses CLIENT_URL.
+    //
+    // Example:
+    // http://localhost:5173/accept-invitation?token=...
+    //
+    // Production:
+    // https://leadms-one.vercel.app/accept-invitation?token=...
+    // --------------------------------------------------------
+
+    const domain =
+      process.env.CLIENT_URL ||
+      "http://localhost:5173";
+
+    await sendInvitationEmail(
+      user.email,
+      tokenStr,
+      domain,
+      designation
+    );
+
+    res.status(200).json({
+      message: "Invitation sent",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// ============================================================
+// ACCEPT TEAM MEMBER INVITATION
+// POST /api/auth/accept-invitation
+// ============================================================
+
+export const acceptInvitation = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const {
+      token,
+      firstName,
+      lastName,
+      password,
+    } = req.body;
+
+    if (
+      !token ||
+      !firstName ||
+      !lastName ||
+      !password
+    ) {
+      return res.status(400).json({
+        message:
+          "Token, first name, last name and password are required",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 6 characters long",
+      });
+    }
+
+    const tokenDoc = await Token.findOne({
+      token,
+      type: "invitation",
+    });
+
+    if (!tokenDoc) {
+      return res.status(400).json({
+        message:
+          "Invalid or expired invitation token",
+      });
+    }
+
+    const user = await User.findById(
+      tokenDoc.userId
+    );
+
+    if (!user) {
+      return res.status(400).json({
+        message:
+          "The invited user could not be found",
+      });
+    }
+
+    // Make sure this token belongs to a Team Member.
+    if (user.role !== "team-member") {
+      return res.status(400).json({
+        message:
+          "This invitation is not valid for a Team Member account",
+      });
+    }
+
     user.firstName = firstName;
     user.lastName = lastName;
+
+    // User model hashes this automatically
+    // through its pre-save middleware.
     user.password = password;
-    user.isEmailConfirmed = true; // Implicitly confirmed
+
+    // Accepting an invitation confirms the email.
+    user.isEmailConfirmed = true;
+
     await user.save();
-    
+
+    // Invitation tokens are single-use.
     await tokenDoc.deleteOne();
-    
-    res.status(200).json({ message: 'Account registered successfully. You can now login.' });
+
+    res.status(200).json({
+      message:
+        "Account registered successfully. You can now login.",
+    });
   } catch (error) {
     next(error);
   }
