@@ -63,15 +63,16 @@ export const register = async (req, res, next) => {
       });
     }
 
-    // --------------------------------------------------------
-    // Email verification configuration
-    //
-    // Set SKIP_EMAIL_VERIFICATION=true for deployment/demo
-    // when no email provider/domain is configured.
-    // --------------------------------------------------------
+    // ========================================================
+    // EMAIL VERIFICATION MODE
+    // ========================================================
 
     const skipEmailVerification =
       process.env.SKIP_EMAIL_VERIFICATION === "true";
+
+    // ========================================================
+    // CREATE USER
+    // ========================================================
 
     const user = await User.create({
       email,
@@ -79,19 +80,15 @@ export const register = async (req, res, next) => {
       role,
       firstName,
       lastName,
+
+      // If email verification is skipped,
+      // mark the account as confirmed immediately.
       isEmailConfirmed: skipEmailVerification,
     });
 
-    // --------------------------------------------------------
-    // Email verification
-    //
-    // When enabled:
-    // 1. Create verification token
-    // 2. Send confirmation email
-    //
-    // When skipped:
-    // Account is already confirmed and no email is sent.
-    // --------------------------------------------------------
+    // ========================================================
+    // EMAIL VERIFICATION
+    // ========================================================
 
     if (!skipEmailVerification) {
       const tokenStr = crypto
@@ -109,6 +106,10 @@ export const register = async (req, res, next) => {
         tokenStr
       );
     }
+
+    // ========================================================
+    // RESPONSE
+    // ========================================================
 
     res.status(201).json({
       message: skipEmailVerification
@@ -154,8 +155,7 @@ const renderVerificationPage = (
         Verdana,
         sans-serif;
 
-      background:
-        #0f172a;
+      background: #0f172a;
 
       display: flex;
 
@@ -447,12 +447,30 @@ export const login = async (
       });
     }
 
-    if (!user.isEmailConfirmed) {
+    // ========================================================
+    // EMAIL VERIFICATION CHECK
+    //
+    // Normally users must verify their email.
+    //
+    // If SKIP_EMAIL_VERIFICATION=true,
+    // verification is bypassed for the deployment/demo.
+    // ========================================================
+console.log("LOGIN DEBUG:");
+console.log("SKIP_EMAIL_VERIFICATION =", process.env.SKIP_EMAIL_VERIFICATION);
+console.log("USER CONFIRMED =", user.isEmailConfirmed);
+    if (
+      !user.isEmailConfirmed &&
+      process.env.SKIP_EMAIL_VERIFICATION !== "true"
+    ) {
       return res.status(401).json({
         message:
           "Please confirm your email first",
       });
     }
+
+    // ========================================================
+    // PASSWORD CHECK
+    // ========================================================
 
     const isMatch =
       await user.comparePassword(
@@ -465,6 +483,10 @@ export const login = async (
       });
     }
 
+    // ========================================================
+    // GENERATE TOKENS
+    // ========================================================
+
     const {
       accessToken,
       refreshToken,
@@ -476,6 +498,10 @@ export const login = async (
       refreshToken;
 
     await user.save();
+
+    // ========================================================
+    // RESPONSE
+    // ========================================================
 
     res.status(200).json({
       accessToken,
@@ -730,15 +756,15 @@ export const inviteTeamMember = async (
       .randomBytes(32)
       .toString("hex");
 
-    // --------------------------------------------------------
-    // Create temporary Team Member account
-    // --------------------------------------------------------
+    // ========================================================
+    // CREATE TEAM MEMBER
+    // ========================================================
 
     const user = await User.create({
       email,
 
       // Temporary password.
-      // The Team Member replaces this when accepting.
+      // Team Member replaces this when accepting invitation.
       password: crypto
         .randomBytes(16)
         .toString("hex"),
@@ -752,9 +778,9 @@ export const inviteTeamMember = async (
       isEmailConfirmed: false,
     });
 
-    // --------------------------------------------------------
-    // Create invitation token
-    // --------------------------------------------------------
+    // ========================================================
+    // CREATE INVITATION TOKEN
+    // ========================================================
 
     await Token.create({
       userId: user._id,
@@ -762,9 +788,9 @@ export const inviteTeamMember = async (
       type: "invitation",
     });
 
-    // --------------------------------------------------------
-    // Invitation email uses CLIENT_URL.
-    // --------------------------------------------------------
+    // ========================================================
+    // SEND INVITATION
+    // ========================================================
 
     const domain =
       process.env.CLIENT_URL ||
