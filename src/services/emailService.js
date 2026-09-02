@@ -1,18 +1,10 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 // ============================================================
-// SMTP TRANSPORTER
+// RESEND CLIENT
 // ============================================================
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: true,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 
 // ============================================================
@@ -26,22 +18,30 @@ const sendEmail = async (
   html
 ) => {
   try {
-    const info = await transporter.sendMail({
-      from: `"CRM Backend" <${
+    const { data, error } = await resend.emails.send({
+      from:
         process.env.FROM_EMAIL ||
-        "noreply@crm.local"
-      }>`,
+        "LeadMS <onboarding@resend.dev>",
       to,
       subject,
       text,
       html,
     });
 
+    if (error) {
+      console.error(
+        `Error sending email to ${to}:`,
+        error
+      );
+
+      throw new Error(error.message);
+    }
+
     console.log(
-      `Email sent to ${to}: ${info.messageId}`
+      `Email sent to ${to}: ${data?.id || "success"}`
     );
 
-    return info;
+    return data;
   } catch (error) {
     console.error(
       `Error sending email to ${to}:`,
@@ -58,11 +58,8 @@ const sendEmail = async (
 //
 // Confirmation is handled directly by the backend.
 //
-// Local:
-// http://localhost:5000/api/auth/confirm-email?token=...
-//
 // Production:
-// https://your-backend-domain/api/auth/confirm-email?token=...
+// https://leadms-backend.onrender.com/api/auth/confirm-email?token=...
 // ============================================================
 
 const sendConfirmationEmail = async (
@@ -180,17 +177,6 @@ const sendConfirmationEmail = async (
 
 // ============================================================
 // TEAM MEMBER INVITATION
-//
-// The invitation must open the FRONTEND.
-//
-// Local:
-// http://localhost:5173/accept-invitation?token=...
-//
-// Production:
-// https://leadms-one.vercel.app/accept-invitation?token=...
-//
-// The frontend will then send:
-// POST /api/auth/accept-invitation
 // ============================================================
 
 const sendInvitationEmail = async (
@@ -317,10 +303,6 @@ const sendInvitationEmail = async (
 
 // ============================================================
 // PASSWORD RESET
-//
-// This currently uses the frontend domain.
-// The frontend reset page receives the token and
-// sends the new password to the backend.
 // ============================================================
 
 const sendPasswordResetEmail = async (
